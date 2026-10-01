@@ -6,7 +6,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/reddec/syno-cli/cmd/syno-cli/commands"
+	"github.com/ycyun/syno-cli/cmd/syno-cli/commands"
 )
 
 //nolint:gochecknoglobals
@@ -38,6 +38,10 @@ func main() {
 	parser.LongDescription = fmt.Sprintf("Unofficial CLI for Synology DSM\nsyno-cli %s, commit %s, built at %s by %s\nAuthor: Aleksandr Baryshnikov <owner@reddec.net>", version, commit, date, builtBy)
 
 	if _, err := parser.Parse(); err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/reddec/syno-cli/pkg/client"
+	"github.com/ycyun/syno-cli/pkg/client"
 )
 
 type DsCreate struct {

@@ -10,16 +10,18 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/reddec/syno-cli/pkg/client"
+	"github.com/ycyun/syno-cli/pkg/client"
 )
 
 //nolint:staticcheck
 type CertsList struct {
+	Logging
 	SynoClient `group:"Synology Client" namespace:"synology" env-namespace:"SYNOLOGY"`
 	Format     string `short:"f" long:"format" env:"FORMAT" description:"How to show output" default:"table" choice:"table" choice:"json"`
 }
 
 func (lc *CertsList) Execute([]string) error {
+	lc.SetupLogging()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 

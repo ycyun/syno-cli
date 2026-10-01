@@ -1,25 +1,47 @@
 package commands
 
 import (
+	"bufio"
+	"context"
 	"crypto/tls"
+	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/reddec/syno-cli/pkg/client"
+	"github.com/ycyun/syno-cli/pkg/client"
 )
 
 type SynoClient struct {
-	User     string        `long:"user" env:"USER" description:"Synology username" required:"true"`
-	Password string        `long:"password" env:"PASSWORD" description:"Synology password" required:"true"`
-	URL      string        `long:"url" env:"URL" description:"Synology URL" default:"http://localhost:5000"`
-	Insecure bool          `long:"insecure" env:"INSECURE" description:"Disable TLS (HTTPS) verification"`
-	Timeout  time.Duration `long:"timeout" env:"TIMEOUT" description:"Default timeout" default:"30s"`
+	User        string        `long:"user" env:"USER" description:"Synology username" required:"true"`
+	Password    string        `long:"password" env:"PASSWORD" description:"Synology password" required:"true"`
+	URL         string        `long:"url" env:"URL" description:"Synology URL" default:"http://localhost:5000"`
+	Insecure    bool          `long:"insecure" env:"INSECURE" description:"Disable TLS (HTTPS) verification"`
+	Timeout     time.Duration `long:"timeout" env:"TIMEOUT" description:"Default timeout" default:"30s"`
+	OTP         string        `long:"otp" env:"OTP" description:"Synology 2FA OTP code"`
+	OTPSecret   string        `long:"otp-secret" env:"OTP_SECRET" description:"Synology 2FA TOTP secret key for automatic code generation"`
+	Session     string        `long:"session" env:"SESSION" description:"Synology session name" default:"FileStation"`
+	SessionFile string        `long:"session-file" env:"SESSION_FILE" description:"Persist Synology session ID in this file"`
+	Debug       bool          `long:"debug" env:"DEBUG" description:"Enable debug logging"`
+	Verbose     bool          `long:"verbose" env:"VERBOSE" description:"Enable verbose logging"`
 }
 
 func (sc SynoClient) Client() *client.Client {
+	if sc.Debug || sc.Verbose {
+		lvl := new(slog.LevelVar)
+		lvl.Set(slog.LevelDebug)
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: lvl,
+		}))
+		slog.SetDefault(logger)
+	}
+
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		panic(err) // impossible
@@ -33,12 +55,49 @@ func (sc SynoClient) Client() *client.Client {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
+
+	var otpProvider client.OTPProvider
+	if sc.OTP == "" && sc.OTPSecret == "" {
+		otpProvider = func(ctx context.Context, token string) (string, error) {
+			fmt.Fprintln(os.Stderr, "🔐 2FA detected. Please enter OTP.")
+			fmt.Fprint(os.Stderr, "OTP code: ")
+			reader := bufio.NewReader(os.Stdin)
+			text, err := reader.ReadString('\n')
+			if err != nil && !errors.Is(err, io.EOF) {
+				return "", err
+			}
+			return strings.TrimSpace(text), nil
+		}
+	}
+	if strings.TrimSpace(sc.SessionFile) == "" {
+		sc.SessionFile = defaultSessionFile()
+	}
+
 	return client.New(client.Config{
-		Client:   httpClient,
-		User:     sc.User,
-		Password: sc.Password,
-		URL:      sc.URL,
+		Client:      httpClient,
+		User:        sc.User,
+		Password:    sc.Password,
+		URL:         sc.URL,
+		OTP:         sc.OTP,
+		OTPSecret:   sc.OTPSecret,
+		OTPProvider: otpProvider,
+		Session:     sc.Session,
+		SessionFile: sc.SessionFile,
 	})
+}
+
+func defaultSessionFile() string {
+	if configDir, err := os.UserConfigDir(); err == nil {
+		path := filepath.Join(configDir, "syno-cli")
+		if err := os.MkdirAll(path, 0o700); err == nil {
+			return filepath.Join(path, "session")
+		}
+	}
+
+	if executable, err := os.Executable(); err == nil {
+		return filepath.Join(filepath.Dir(executable), ".syno-cli-session")
+	}
+	return ".syno-cli-session"
 }
 
 const (
@@ -47,7 +106,8 @@ const (
 )
 
 type Logging struct {
-	Debug bool `long:"debug" env:"DEBUG" description:"Enable debug logging"`
+	Debug   bool `long:"debug" env:"DEBUG" description:"Enable debug logging"`
+	Verbose bool `short:"v" long:"verbose" env:"VERBOSE" description:"Enable verbose logging"`
 }
 
 func (l *Logging) SetupLogging() {
@@ -56,7 +116,7 @@ func (l *Logging) SetupLogging() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: lvl,
 	}))
-	if l.Debug {
+	if l.Debug || l.Verbose {
 		lvl.Set(slog.LevelDebug)
 	} else {
 		lvl.Set(slog.LevelInfo)

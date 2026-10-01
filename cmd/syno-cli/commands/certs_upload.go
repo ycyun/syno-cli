@@ -9,11 +9,12 @@ import (
 	"os/signal"
 	"text/tabwriter"
 
-	"github.com/reddec/syno-cli/pkg/client"
+	"github.com/ycyun/syno-cli/pkg/client"
 )
 
 //nolint:staticcheck
 type CertsUpload struct {
+	Logging
 	SynoClient `group:"Synology Client" namespace:"synology" env-namespace:"SYNOLOGY"`
 	Key        string `short:"k" long:"key" env:"KEY" description:"Path to private key. Use - (dash) to read it from stdin" default:"-"`
 	Cert       string `short:"c" long:"cert" env:"CERT" description:"Path to server certificate" required:"true"`
@@ -26,6 +27,7 @@ type CertsUpload struct {
 }
 
 func (lc *CertsUpload) Execute([]string) error {
+	lc.SetupLogging()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 

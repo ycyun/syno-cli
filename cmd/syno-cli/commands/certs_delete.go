@@ -8,11 +8,12 @@ import (
 	"os/signal"
 	"text/tabwriter"
 
-	"github.com/reddec/syno-cli/pkg/client"
+	"github.com/ycyun/syno-cli/pkg/client"
 )
 
 //nolint:staticcheck
 type CertsDelete struct {
+	Logging
 	SynoClient `group:"Synology Client" namespace:"synology" env-namespace:"SYNOLOGY"`
 	Format     string `short:"f" long:"format" env:"FORMAT" description:"Output format" default:"table" choice:"table" choice:"json"`
 	Args       struct {
@@ -21,6 +22,7 @@ type CertsDelete struct {
 }
 
 func (lc *CertsDelete) Execute([]string) error {
+	lc.SetupLogging()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 

@@ -12,10 +12,10 @@ Focus on administrative tasks.
 
 Supports:
 
-* X86-64 and ARM [builds](https://github.com/reddec/syno-cli/releases/latest)
+* X86-64 and ARM [builds](https://github.com/ycyun/syno-cli/releases/latest)
 * Universal docker image (arm and amd64)
-* As [CLI](https://github.com/reddec/syno-cli/releases/latest) and
-  as [library](https://pkg.go.dev/github.com/reddec/syno-cli)
+* As [CLI](https://github.com/ycyun/syno-cli/releases/latest) and
+  as [library](https://pkg.go.dev/github.com/ycyun/syno-cli)
 
 ## Development notes
 
@@ -23,10 +23,10 @@ Supports:
 
 ## Installation
 
-* Pre-built binaries from [releases](https://github.com/reddec/syno-cli/releases/latest)
-* Docker (universal): `ghcr.io/reddec/syno-cli:<release>` (
-  see [releases](https://github.com/reddec/syno-cli/releases/latest))
-* From source (requires latest Go): `go install github.com/reddec/syno-cli/cmd/syno-cli@latest`
+* Pre-built binaries from [releases](https://github.com/ycyun/syno-cli/releases/latest)
+* Docker (universal): `ghcr.io/ycyun/syno-cli:<release>` (
+  see [releases](https://github.com/ycyun/syno-cli/releases/latest))
+* From source (requires latest Go): `go install github.com/ycyun/syno-cli/cmd/syno-cli@latest`
 
 ## Usage
 

@@ -24,11 +24,12 @@ import (
 	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-acme/lego/v4/registration"
 
-	"github.com/reddec/syno-cli/pkg/client"
+	"github.com/ycyun/syno-cli/pkg/client"
 )
 
 //nolint:staticcheck
 type CertsAuto struct {
+	Logging
 	SynoClient  `group:"Synology Client" namespace:"synology" env-namespace:"SYNOLOGY"`
 	CacheDir    string        `short:"c" long:"cache-dir" env:"CACHE_DIR" description:"Cache location for accounts information" default:".cache"`
 	RenewBefore time.Duration `short:"r" long:"renew-before" env:"RENEW_BEFORE" description:"Renew certificate time reserve" default:"720h"`
@@ -40,6 +41,7 @@ type CertsAuto struct {
 }
 
 func (lc *CertsAuto) Execute([]string) error {
+	lc.SetupLogging()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 

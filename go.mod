@@ -1,4 +1,4 @@
-module github.com/reddec/syno-cli
+module github.com/ycyun/syno-cli
 
 go 1.23.0
 

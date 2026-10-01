@@ -1,7 +1,9 @@
 .env
+.evn
 test-data
 .idea
 /dist
 /build
+/bin
 .cache
 .env.local
