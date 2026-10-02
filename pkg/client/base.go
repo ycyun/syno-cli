@@ -25,13 +25,16 @@ import (
 )
 
 const (
-	EnvURL         = "SYNOLOGY_URL"
-	EnvUser        = "SYNOLOGY_USER"
-	EnvPass        = "SYNOLOGY_PASSWORD" //nolint:gosec
-	EnvOTP         = "SYNOLOGY_OTP"
-	EnvOTPSecret   = "SYNOLOGY_OTP_SECRET" //nolint:gosec
-	EnvSession     = "SYNOLOGY_SESSION"
-	EnvSessionFile = "SYNOLOGY_SESSION_FILE"
+	EnvURL             = "SYNOLOGY_URL"
+	EnvUser            = "SYNOLOGY_USER"
+	EnvPass            = "SYNOLOGY_PASSWORD" //nolint:gosec
+	EnvOTP             = "SYNOLOGY_OTP"
+	EnvOTPSecret       = "SYNOLOGY_OTP_SECRET" //nolint:gosec
+	EnvSession         = "SYNOLOGY_SESSION"
+	EnvSessionFile     = "SYNOLOGY_SESSION_FILE"
+	EnvDeviceToken     = "SYNOLOGY_DEVICE_TOKEN"
+	EnvDeviceName      = "SYNOLOGY_DEVICE_NAME"
+	EnvDeviceTokenFile = "SYNOLOGY_DEVICE_TOKEN_FILE"
 )
 
 const DefaultTimeout = 30 * time.Second
@@ -53,15 +56,18 @@ func (hf HTTPClientFunc) Do(req *http.Request) (*http.Response, error) {
 type OTPProvider func(ctx context.Context, token string) (string, error)
 
 type Config struct {
-	Client      HTTPClient  // HTTP client to perform requests, default is new HTTP client. Client MUST support cookies. Keep it nil for most cases is a good idea.
-	User        string      // User name
-	Password    string      // User password
-	URL         string      // Synology url, default is http://localhost:5000
-	OTP         string      // 6-digit OTP code (optional)
-	OTPSecret   string      // Base32 TOTP secret for automatic OTP code generation (optional)
-	OTPProvider OTPProvider // Callback to obtain OTP when 2FA is required (optional)
-	Session     string      // Synology session name, default is "FileStation"
-	SessionFile string      // Optional file to persist the authenticated session ID.
+	Client          HTTPClient  // HTTP client to perform requests, default is new HTTP client. Client MUST support cookies. Keep it nil for most cases is a good idea.
+	User            string      // User name
+	Password        string      // User password
+	URL             string      // Synology url, default is http://localhost:5000
+	OTP             string      // 6-digit OTP code (optional)
+	OTPSecret       string      // Base32 TOTP secret for automatic OTP code generation (optional)
+	OTPProvider     OTPProvider // Callback to obtain OTP when 2FA is required (optional)
+	Session         string      // Synology session name, default is "FileStation"
+	SessionFile     string      // Optional file to persist the authenticated session ID.
+	DeviceToken     string      // Synology device ID that can skip OTP on subsequent logins.
+	DeviceName      string      // Device name used when registering the device token.
+	DeviceTokenFile string      // Optional file to persist the device ID.
 }
 
 // Default client based on env variables.
@@ -86,13 +92,16 @@ func FromEnv(envFunc func(string) string) Config {
 	}
 
 	return Config{
-		User:        getAny(EnvUser, "NAS_USER"),
-		Password:    getAny(EnvPass, "NAS_PASSWORD", "NAS_PASS"),
-		URL:         getAny(EnvURL, "NAS_URL"),
-		OTP:         getAny(EnvOTP, "NAS_OTP", "OTP_CODE", "OTP"),
-		OTPSecret:   getAny(EnvOTPSecret, "NAS_OTP_SECRET", "OTP_SECRET"),
-		Session:     getAny(EnvSession, "NAS_SESSION"),
-		SessionFile: getAny(EnvSessionFile, "NAS_SESSION_FILE"),
+		User:            getAny(EnvUser, "NAS_USER"),
+		Password:        getAny(EnvPass, "NAS_PASSWORD", "NAS_PASS"),
+		URL:             getAny(EnvURL, "NAS_URL"),
+		OTP:             getAny(EnvOTP, "NAS_OTP", "OTP_CODE", "OTP"),
+		OTPSecret:       getAny(EnvOTPSecret, "NAS_OTP_SECRET", "OTP_SECRET"),
+		Session:         getAny(EnvSession, "NAS_SESSION"),
+		SessionFile:     getAny(EnvSessionFile, "NAS_SESSION_FILE"),
+		DeviceToken:     getAny(EnvDeviceToken, "NAS_DEVICE_TOKEN"),
+		DeviceName:      getAny(EnvDeviceName, "NAS_DEVICE_NAME"),
+		DeviceTokenFile: getAny(EnvDeviceTokenFile, "NAS_DEVICE_TOKEN_FILE"),
 	}
 }
 
@@ -118,15 +127,26 @@ func New(cfg Config) *Client {
 	}
 
 	cl := &Client{
-		client:      cfg.Client,
-		user:        cfg.User,
-		password:    cfg.Password,
-		baseURL:     cfg.URL,
-		otp:         cfg.OTP,
-		otpSecret:   cfg.OTPSecret,
-		otpProvider: cfg.OTPProvider,
-		session:     cfg.Session,
-		sessionFile: strings.TrimSpace(cfg.SessionFile),
+		client:          cfg.Client,
+		user:            cfg.User,
+		password:        cfg.Password,
+		baseURL:         cfg.URL,
+		otp:             cfg.OTP,
+		otpSecret:       cfg.OTPSecret,
+		otpProvider:     cfg.OTPProvider,
+		session:         cfg.Session,
+		sessionFile:     strings.TrimSpace(cfg.SessionFile),
+		deviceToken:     strings.TrimSpace(cfg.DeviceToken),
+		deviceName:      strings.TrimSpace(cfg.DeviceName),
+		deviceTokenFile: strings.TrimSpace(cfg.DeviceTokenFile),
+	}
+	if cl.deviceName == "" {
+		cl.deviceName = "syno-cli"
+	}
+	if cl.deviceToken == "" && cl.deviceTokenFile != "" {
+		if data, err := os.ReadFile(cl.deviceTokenFile); err == nil {
+			cl.deviceToken = strings.TrimSpace(string(data))
+		}
 	}
 	if cl.sessionFile != "" {
 		if data, err := os.ReadFile(cl.sessionFile); err == nil {
@@ -140,21 +160,24 @@ func New(cfg Config) *Client {
 }
 
 type Client struct {
-	client      HTTPClient
-	user        string
-	password    string
-	baseURL     string
-	otp         string
-	otpSecret   string
-	otpProvider OTPProvider
-	session     string
-	sessionFile string
-	sid         string
-	sidLock     sync.RWMutex
-	authorized  atomic.Bool
-	authLock    sync.Mutex
-	versionLock sync.Mutex
-	versions    map[string]API
+	client          HTTPClient
+	user            string
+	password        string
+	baseURL         string
+	otp             string
+	otpSecret       string
+	otpProvider     OTPProvider
+	session         string
+	sessionFile     string
+	deviceToken     string
+	deviceName      string
+	deviceTokenFile string
+	sid             string
+	sidLock         sync.RWMutex
+	authorized      atomic.Bool
+	authLock        sync.Mutex
+	versionLock     sync.Mutex
+	versions        map[string]API
 }
 
 // SID returns the current session ID if logged in.
@@ -187,16 +210,19 @@ func (cl *Client) WithClient(client HTTPClient) *Client {
 	defer cl.authLock.Unlock()
 
 	return &Client{
-		client:      client,
-		user:        cl.user,
-		password:    cl.password,
-		baseURL:     cl.baseURL,
-		otp:         cl.otp,
-		otpSecret:   cl.otpSecret,
-		otpProvider: cl.otpProvider,
-		session:     cl.session,
-		sessionFile: cl.sessionFile,
-		versions:    cl.versions,
+		client:          client,
+		user:            cl.user,
+		password:        cl.password,
+		baseURL:         cl.baseURL,
+		otp:             cl.otp,
+		otpSecret:       cl.otpSecret,
+		otpProvider:     cl.otpProvider,
+		session:         cl.session,
+		sessionFile:     cl.sessionFile,
+		deviceToken:     cl.deviceToken,
+		deviceName:      cl.deviceName,
+		deviceTokenFile: cl.deviceTokenFile,
+		versions:        cl.versions,
 	}
 }
 
@@ -249,6 +275,11 @@ func (cl *Client) Login(ctx context.Context) error {
 			{Name: "passwd", Value: cl.password},
 			{Name: "session", Value: session},
 			{Name: "format", Value: "cookie"},
+		}
+		if cl.deviceToken != "" {
+			params = append(params, field{Name: "device_name", Value: cl.deviceName}, field{Name: "device_id", Value: cl.deviceToken})
+		} else {
+			params = append(params, field{Name: "enable_device_token", Value: "yes"}, field{Name: "device_name", Value: cl.deviceName})
 		}
 		if otpCode != "" {
 			params = append(params, field{Name: "otp_code", Value: otpCode})
@@ -306,7 +337,8 @@ func (cl *Client) Login(ctx context.Context) error {
 
 	var loginData struct {
 		Data struct {
-			SID string `json:"sid"`
+			SID      string `json:"sid"`
+			DeviceID string `json:"did"`
 		} `json:"data"`
 	}
 	bodyBytes, _ := io.ReadAll(res.Body)
@@ -322,6 +354,17 @@ func (cl *Client) Login(ctx context.Context) error {
 			}
 			if err := os.WriteFile(cl.sessionFile, []byte(loginData.Data.SID+"\n"), 0o600); err != nil {
 				return fmt.Errorf("save session: %w", err)
+			}
+		}
+		if loginData.Data.DeviceID != "" {
+			cl.deviceToken = loginData.Data.DeviceID
+			if cl.deviceTokenFile != "" {
+				if dir := filepath.Dir(cl.deviceTokenFile); dir != "." {
+					_ = os.MkdirAll(dir, 0o700)
+				}
+				if err := os.WriteFile(cl.deviceTokenFile, []byte(loginData.Data.DeviceID+"\n"), 0o600); err != nil {
+					return fmt.Errorf("save device token: %w", err)
+				}
 			}
 		}
 	}
@@ -364,6 +407,11 @@ func (cl *Client) Logout(ctx context.Context) error {
 	if cl.sessionFile != "" {
 		if err := os.Remove(cl.sessionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("remove saved session: %w", err)
+		}
+	}
+	if cl.deviceTokenFile != "" {
+		if err := os.Remove(cl.deviceTokenFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove device token: %w", err)
 		}
 	}
 	return nil

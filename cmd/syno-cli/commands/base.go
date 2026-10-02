@@ -19,17 +19,20 @@ import (
 )
 
 type SynoClient struct {
-	User        string        `long:"user" env:"USER" description:"Synology username" required:"true"`
-	Password    string        `long:"password" env:"PASSWORD" description:"Synology password" required:"true"`
-	URL         string        `long:"url" env:"URL" description:"Synology URL" default:"http://localhost:5000"`
-	Insecure    bool          `long:"insecure" env:"INSECURE" description:"Disable TLS (HTTPS) verification"`
-	Timeout     time.Duration `long:"timeout" env:"TIMEOUT" description:"Default timeout" default:"30s"`
-	OTP         string        `long:"otp" env:"OTP" description:"Synology 2FA OTP code"`
-	OTPSecret   string        `long:"otp-secret" env:"OTP_SECRET" description:"Synology 2FA TOTP secret key for automatic code generation"`
-	Session     string        `long:"session" env:"SESSION" description:"Synology session name" default:"FileStation"`
-	SessionFile string        `long:"session-file" env:"SESSION_FILE" description:"Persist Synology session ID in this file"`
-	Debug       bool          `long:"debug" env:"DEBUG" description:"Enable debug logging"`
-	Verbose     bool          `long:"verbose" env:"VERBOSE" description:"Enable verbose logging"`
+	User            string        `long:"user" env:"USER" description:"Synology username" required:"true"`
+	Password        string        `long:"password" env:"PASSWORD" description:"Synology password" required:"true"`
+	URL             string        `long:"url" env:"URL" description:"Synology URL" default:"http://localhost:5000"`
+	Insecure        bool          `long:"insecure" env:"INSECURE" description:"Disable TLS (HTTPS) verification"`
+	Timeout         time.Duration `long:"timeout" env:"TIMEOUT" description:"Default timeout" default:"30s"`
+	OTP             string        `long:"otp" env:"OTP" description:"Synology 2FA OTP code"`
+	OTPSecret       string        `long:"otp-secret" env:"OTP_SECRET" description:"Synology 2FA TOTP secret key for automatic code generation"`
+	Session         string        `long:"session" env:"SESSION" description:"Synology session name" default:"FileStation"`
+	SessionFile     string        `long:"session-file" env:"SESSION_FILE" description:"Persist Synology session ID in this file"`
+	DeviceToken     string        `long:"device-token" env:"DEVICE_TOKEN" description:"Synology device ID to skip OTP"`
+	DeviceName      string        `long:"device-name" env:"DEVICE_NAME" description:"Synology trusted device name" default:"syno-cli"`
+	DeviceTokenFile string        `long:"device-token-file" env:"DEVICE_TOKEN_FILE" description:"Persist Synology device ID in this file"`
+	Debug           bool          `long:"debug" env:"DEBUG" description:"Enable debug logging"`
+	Verbose         bool          `long:"verbose" env:"VERBOSE" description:"Enable verbose logging"`
 }
 
 func (sc SynoClient) Client() *client.Client {
@@ -72,17 +75,23 @@ func (sc SynoClient) Client() *client.Client {
 	if strings.TrimSpace(sc.SessionFile) == "" {
 		sc.SessionFile = defaultSessionFile()
 	}
+	if strings.TrimSpace(sc.DeviceTokenFile) == "" {
+		sc.DeviceTokenFile = sc.SessionFile + ".device-token"
+	}
 
 	return client.New(client.Config{
-		Client:      httpClient,
-		User:        sc.User,
-		Password:    sc.Password,
-		URL:         sc.URL,
-		OTP:         sc.OTP,
-		OTPSecret:   sc.OTPSecret,
-		OTPProvider: otpProvider,
-		Session:     sc.Session,
-		SessionFile: sc.SessionFile,
+		Client:          httpClient,
+		User:            sc.User,
+		Password:        sc.Password,
+		URL:             sc.URL,
+		OTP:             sc.OTP,
+		OTPSecret:       sc.OTPSecret,
+		OTPProvider:     otpProvider,
+		Session:         sc.Session,
+		SessionFile:     sc.SessionFile,
+		DeviceToken:     sc.DeviceToken,
+		DeviceName:      sc.DeviceName,
+		DeviceTokenFile: sc.DeviceTokenFile,
 	})
 }
 

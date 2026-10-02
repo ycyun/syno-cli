@@ -28,6 +28,61 @@ Supports:
   see [releases](https://github.com/ycyun/syno-cli/releases/latest))
 * From source (requires latest Go): `go install github.com/ycyun/syno-cli/cmd/syno-cli@latest`
 
+### Build for different platforms
+
+The Synology x86_64 target is Linux AMD64:
+
+```sh
+make build GOOS=linux GOARCH=amd64
+```
+
+Build all supported Linux, macOS, and Windows architectures with:
+
+```sh
+make build-all
+```
+
+Convenience targets are also available: `make linux`, `make mac`, and `make windows`.
+Artifacts are written to `dist/`; Windows builds include the `.exe` suffix.
+
+### 2FA, TOTP secret, and trusted device
+
+The CLI stores the SID by default and reuses it until DSM expires it. The
+default files are under the user config directory:
+
+```text
+session                    # authenticated SID
+session.device-token       # trusted device ID
+```
+
+To use automatic TOTP instead of interactive OTP input, set the Base32 secret
+shown while enabling 2-step verification for the DSM account:
+
+```sh
+export SYNOLOGY_OTP_SECRET='BASE32_SECRET_FROM_DSM'
+```
+
+The secret is obtained in DSM under the user's 2-step verification setup when
+registering an authenticator app. Store it like a password and do not commit it
+to `.env` or source control.
+
+On the first successful OTP login, the CLI requests a trusted device token and
+saves the returned device ID. Later logins can omit OTP by reusing it:
+
+```sh
+export SYNOLOGY_DEVICE_NAME='ycyun-nas-cli'
+export SYNOLOGY_DEVICE_TOKEN_FILE='/path/to/syno-cli.device-token'
+```
+
+Alternatively, provide an existing device ID directly with
+`SYNOLOGY_DEVICE_TOKEN`. The equivalent CLI flags are
+`--synology.otp-secret`, `--synology.device-name`,
+`--synology.device-token`, and `--synology.device-token-file`.
+
+Use a different device name for each trusted client. Device tokens can be
+revoked from DSM's trusted-device/security settings. Explicit logout removes
+both the saved SID and device-token files.
+
 ## Usage
 
 Each command supports `--help` option.
