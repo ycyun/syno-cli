@@ -79,6 +79,12 @@ Alternatively, provide an existing device ID directly with
 `--synology.otp-secret`, `--synology.device-name`,
 `--synology.device-token`, and `--synology.device-token-file`.
 
+Trusted device support is enabled by default. Disable it only when required:
+
+```sh
+syno-cli ... --synology.no-device-token
+```
+
 Use a different device name for each trusted client. Device tokens can be
 revoked from DSM's trusted-device/security settings. Explicit logout removes
 both the saved SID and device-token files.

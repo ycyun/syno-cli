@@ -31,6 +31,7 @@ type SynoClient struct {
 	DeviceToken     string        `long:"device-token" env:"DEVICE_TOKEN" description:"Synology device ID to skip OTP"`
 	DeviceName      string        `long:"device-name" env:"DEVICE_NAME" description:"Synology trusted device name" default:"syno-cli"`
 	DeviceTokenFile string        `long:"device-token-file" env:"DEVICE_TOKEN_FILE" description:"Persist Synology device ID in this file"`
+	NoDeviceToken   bool          `long:"no-device-token" env:"NO_DEVICE_TOKEN" description:"Disable trusted device token support"`
 	Debug           bool          `long:"debug" env:"DEBUG" description:"Enable debug logging"`
 	Verbose         bool          `long:"verbose" env:"VERBOSE" description:"Enable verbose logging"`
 }
@@ -80,18 +81,19 @@ func (sc SynoClient) Client() *client.Client {
 	}
 
 	return client.New(client.Config{
-		Client:          httpClient,
-		User:            sc.User,
-		Password:        sc.Password,
-		URL:             sc.URL,
-		OTP:             sc.OTP,
-		OTPSecret:       sc.OTPSecret,
-		OTPProvider:     otpProvider,
-		Session:         sc.Session,
-		SessionFile:     sc.SessionFile,
-		DeviceToken:     sc.DeviceToken,
-		DeviceName:      sc.DeviceName,
-		DeviceTokenFile: sc.DeviceTokenFile,
+		Client:             httpClient,
+		User:               sc.User,
+		Password:           sc.Password,
+		URL:                sc.URL,
+		OTP:                sc.OTP,
+		OTPSecret:          sc.OTPSecret,
+		OTPProvider:        otpProvider,
+		Session:            sc.Session,
+		SessionFile:        sc.SessionFile,
+		DeviceToken:        sc.DeviceToken,
+		DeviceName:         sc.DeviceName,
+		DeviceTokenFile:    sc.DeviceTokenFile,
+		DisableDeviceToken: sc.NoDeviceToken,
 	})
 }
 
