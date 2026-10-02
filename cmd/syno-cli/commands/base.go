@@ -19,8 +19,8 @@ import (
 )
 
 type SynoClient struct {
-	User            string        `long:"user" env:"USER" description:"Synology username" required:"true"`
-	Password        string        `long:"password" env:"PASSWORD" description:"Synology password" required:"true"`
+	User            string        `long:"user" env:"USER" description:"Synology username"`
+	Password        string        `long:"password" env:"PASSWORD" description:"Synology password"`
 	URL             string        `long:"url" env:"URL" description:"Synology URL" default:"http://localhost:5000"`
 	Insecure        bool          `long:"insecure" env:"INSECURE" description:"Disable TLS (HTTPS) verification"`
 	Timeout         time.Duration `long:"timeout" env:"TIMEOUT" description:"Default timeout" default:"30s"`

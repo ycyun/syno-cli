@@ -19,7 +19,9 @@ var (
 
 //nolint:staticcheck
 type Config struct {
-	Cert struct {
+	Login  commands.Login  `command:"login" description:"login to Synology"`
+	Logout commands.Logout `command:"logout" description:"logout from Synology"`
+	Cert   struct {
 		List   commands.CertsList   `command:"list" description:"list certificates" alias:"ls" alias:"l"`
 		Upload commands.CertsUpload `command:"upload" description:"upload certificate" alias:"up" alias:"u"`
 		Delete commands.CertsDelete `command:"delete" description:"delete certificate" alias:"remove" alias:"rm"  alias:"del" alias:"d"`

@@ -47,6 +47,17 @@ Artifacts are written to `dist/`; Windows builds include the `.exe` suffix.
 
 ### 2FA, TOTP secret, and trusted device
 
+You can explicitly create or invalidate the saved session with:
+
+```sh
+syno-cli login
+syno-cli logout
+```
+
+`logout` invalidates the Synology session and removes the saved SID and device
+token files. The login command prompts for OTP interactively unless
+`SYNOLOGY_OTP_SECRET` or a trusted device token is available.
+
 The CLI stores the SID by default and reuses it until DSM expires it. The
 default files are under the user config directory:
 
