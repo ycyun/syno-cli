@@ -341,8 +341,9 @@ func (cl *Client) Login(ctx context.Context) error {
 
 	var loginData struct {
 		Data struct {
-			SID      string `json:"sid"`
-			DeviceID string `json:"did"`
+			SID         string `json:"sid"`
+			DeviceID    string `json:"did"`
+			DeviceIDAlt string `json:"device_id"`
 		} `json:"data"`
 	}
 	bodyBytes, _ := io.ReadAll(res.Body)
@@ -359,6 +360,9 @@ func (cl *Client) Login(ctx context.Context) error {
 			if err := os.WriteFile(cl.sessionFile, []byte(loginData.Data.SID+"\n"), 0o600); err != nil {
 				return fmt.Errorf("save session: %w", err)
 			}
+		}
+		if loginData.Data.DeviceID == "" {
+			loginData.Data.DeviceID = loginData.Data.DeviceIDAlt
 		}
 		if !cl.disableDeviceToken && loginData.Data.DeviceID != "" {
 			cl.deviceToken = loginData.Data.DeviceID

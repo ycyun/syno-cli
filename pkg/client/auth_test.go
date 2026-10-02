@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -292,6 +294,7 @@ func TestClient_Logout(t *testing.T) {
 
 func TestClient_2FA_PersistsSession(t *testing.T) {
 	sessionFile := filepath.Join(t.TempDir(), "session")
+	deviceTokenFile := filepath.Join(t.TempDir(), "device-token")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/webapi/query.cgi" {
@@ -305,7 +308,7 @@ func TestClient_2FA_PersistsSession(t *testing.T) {
 				return
 			}
 			if r.FormValue("method") == "login" && r.FormValue("otp_code") == "123456" {
-				_, _ = w.Write([]byte(`{"data":{"sid":"persisted_sid"},"success":true}`))
+				_, _ = w.Write([]byte(`{"data":{"sid":"persisted_sid","device_id":"device_123"},"success":true}`))
 				return
 			}
 		}
@@ -313,13 +316,22 @@ func TestClient_2FA_PersistsSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	first := client.New(client.Config{URL: server.URL, User: "admin", Password: "password", OTP: "123456", SessionFile: sessionFile})
+	first := client.New(client.Config{URL: server.URL, User: "admin", Password: "password", OTP: "123456", SessionFile: sessionFile, DeviceTokenFile: deviceTokenFile})
 	require.NoError(t, first.Login(context.Background()))
 	assert.Equal(t, "persisted_sid", first.SID())
+	assert.Equal(t, "device_123", strings.TrimSpace(string(mustReadFile(t, deviceTokenFile))))
 
-	second := client.New(client.Config{URL: server.URL, SessionFile: sessionFile})
+	second := client.New(client.Config{URL: server.URL, SessionFile: sessionFile, DeviceTokenFile: deviceTokenFile})
 	assert.Equal(t, "persisted_sid", second.SID())
 	require.NoError(t, second.Login(context.Background()))
 	require.NoError(t, second.Logout(context.Background()))
 	assert.NoFileExists(t, sessionFile)
+	assert.NoFileExists(t, deviceTokenFile)
+}
+
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return data
 }
